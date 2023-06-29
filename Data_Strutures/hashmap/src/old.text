@@ -1,0 +1,88 @@
+#include <hashmap.h>
+
+unsigned int hash_func(char *username) {
+    unsigned int len = strlen(username);
+    unsigned int hashVal = 0;
+    for(unsigned int i = 0; i < len; i++) {
+        hashVal += username[i];
+    }
+    return hashVal % TABLE_SIZE;
+}
+
+HashMap *init_hash_table(void) {
+    HashMap *map = NULL;
+    for(int i = 0; i < ALLOCATION_ATTEMPTS; i++) {
+        map = malloc(sizeof(HashMap));
+        if(map != NULL) break;
+        CHECK_LAST(i, ALLOCATION_ATTEMPTS);
+    }
+    for(int i = 0; i < ALLOCATION_ATTEMPTS; i++) {
+        map->table = malloc(TABLE_SIZE * sizeof(*map->table));
+        if(map->table != NULL) break;
+        CHECK_LAST(i, ALLOCATION_ATTEMPTS);
+    }
+    map->size = TABLE_SIZE;
+    for(int i = 0; i < TABLE_SIZE; i++) {
+        map->table[i] = NULL;
+    }
+    return map;
+}
+
+void insert_user(HashMap *map, User *user) {
+    int hash = hash_func(user->username);
+    int index = hash;
+    while(map->table[index] != NULL) {
+        index = (index + 1) % map->size;
+        if(index == hash) {
+            index = map->size + 1;
+            int oldSize = map->size;
+            map->size *= SIZE_INCREASE_FACTOR;
+            for(int i = oldSize; i < map->size; i++) {
+                for(int j = 0; j < ALLOCATION_ATTEMPTS; j++) {
+                    map->table[i] = malloc(sizeof(*map->table));
+                    if(map->table[i] != NULL) break;
+                    CHECK_LAST(j, ALLOCATION_ATTEMPTS);
+                }
+            }
+        }
+    }
+    map->table[index] = user;
+}
+
+void delete_user(HashMap *map, char *username) {
+    int index = hash_func(username);
+    while(1) {
+        if(map->table[index] != NULL) {
+            if(strcmp(map->table[index]->username, username) == 0) {
+                free(map->table[index]);
+                map->table[index] = NULL;
+            }
+            else index = (index + 1) % TABLE_SIZE;
+        }
+        else return;
+    }
+}
+
+void print_table(HashMap *map) {
+    for(int i = 0; i < TABLE_SIZE; i++) {
+        if(map->table[i] == NULL) {
+            printf("%d: ------\n", i);
+        }
+        else {
+            printf("%d: %s\n", i, map->table[i]->username);
+        }
+    }
+}
+
+User *lookup(HashMap *map, char *username) {
+    int index = hash_func(username);
+    while(1) {
+        if(map->table[index] != NULL) {
+            if(strcmp(map->table[index]->username, username) == 0)
+                return map->table[index];
+            else
+                index = (index + 1) % TABLE_SIZE;
+        }
+        else return NULL;
+    }
+}
