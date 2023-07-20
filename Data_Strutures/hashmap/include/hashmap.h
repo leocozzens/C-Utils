@@ -1,29 +1,22 @@
 #ifndef HASHMAP_H
 #define HASHMAP_H
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <stdint.h>
-#include <string.h>
 
-#define MAX_USER 256
-#define TABLE_SIZE 10
-#define ALLOCATION_ATTEMPTS 5
-#define SIZE_INCREASE_FACTOR 2
+typedef enum {
+    ALLOC_ERR = -1,
+    SUCCESS,
+    DUPLICATE_KEY
+} ExitCode;
 
-#define CHECK_LAST(_iterator, _attempts) if((_iterator + 1) == _attempts) { \
-                fprintf(stderr, "ERROR: Memory allocation error\n"); \
-                exit(1); \
-                }
-
-typedef uint64_t hash_func(const void*, size_t);
+typedef uint64_t hash_func(const void* key, size_t keySize);
 typedef struct _HashMap HashMap;
 
-_Bool init_hashmap(uint64_t size, hash_func hasher, HashMap **map);
+ExitCode init_hashmap(uint64_t size, hash_func hasher, HashMap **map);
 void destroy_hashmap(HashMap *map);
 void print_hashmap(HashMap *map);
-_Bool hashmap_insert(HashMap *map, const void *key, size_t keyLength, void *object);
-void *hashmap_lookup(HashMap *map, const void *key, size_t keyLength);
-void *hashmap_delete(HashMap *map, const void *key, size_t keyLength);
+ExitCode hashmap_insert(HashMap *map, const void *key, size_t keySize, void *object, size_t objectSize);
+void *hashmap_lookup(HashMap *map, const void *key, size_t keySize);
+void *hashmap_delete(HashMap *map, const void *key, size_t keySize);
 
 #endif
