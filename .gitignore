@@ -56,3 +56,6 @@ dkms.conf
 
 # Exclude bundled executables
 *.zip
+
+# Binaries
+*.bin

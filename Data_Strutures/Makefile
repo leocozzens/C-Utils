@@ -6,7 +6,6 @@ DIRECTORIES = $(patsubst %/, %, $(patsubst $(OBJ)/,, $(patsubst $(BINDIR)/,, $(w
 SRCS = $(wildcard $@/$(SRC)/*.c)
 BIN = $(BINDIR)/$@.bin
 
-all: create_dirs
 all: $(DIRECTORIES)
 
 .PHONY: release debug
@@ -16,11 +15,16 @@ debug:
 	$(eval CFLAGS += -g)
 
 .SECONDEXPANSION:
+$(DIRECTORIES): create_dirs
 $(DIRECTORIES): $$@/$(SRC)/*.c
 	$(CC) $(CFLAGS) $(SRCS) -o $(BIN)
 
-.PHONY: clean create_dirs
+.PHONY: clean new create_dirs
 clean:
-	rm $(BINDIR)/*
+	rm -r $(BINDIR)
+
+new: clean
+new: all
+
 create_dirs:
 	@mkdir -p $(BINDIR)
