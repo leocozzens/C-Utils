@@ -75,7 +75,7 @@ void enter_wordlist(char *wordList, HashMap *map, char **guessList, uint32_t gue
     FILE *wordlist = fopen(wordList, "r");
     char buffer[WORD_SIZE];
     uint32_t wordCount = 0;
-    while(fgets(buffer, WORD_SIZE, wordlist) && !feof(wordlist)) {
+    while(fgets(buffer, WORD_SIZE, wordlist)) {
         char *endLine = strchr(buffer, '\n');
         if(endLine != NULL) *endLine = '\0';
 
@@ -91,6 +91,7 @@ void enter_wordlist(char *wordList, HashMap *map, char **guessList, uint32_t gue
         fprintf(stderr, "ERROR: Guess count larger than total wordcount\n");
         exit(EXIT_FAILURE);
     }
+    printf("%d words parsed and logged in map\n", wordCount);
     fclose(wordlist);
 }
 
