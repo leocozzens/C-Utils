@@ -10,12 +10,32 @@
 #define TABLE_SIZE 1<<15
 #define WORD_SIZE 256
 
-uint64_t hash_key(const void *key, size_t len) {
-    const char *keyStr = key;
-    unsigned int hashVal = 0;
-    for(unsigned int i = 0; i < len; i++) {
-        hashVal += keyStr[i];
+#define UTIL_CHECK(_RetPtr) ((_RetPtr) == NULL) ? perror("ERROR"), exit(1) : 0
+
+#define FNV_PRIME 0x100000001b3
+#define FNV_OFFSET 0xcbf29ce48422325UL
+
+uint64_t hash_fnv1a(const void *key, size_t len) {
+    const char *keyVals = key;
+    uint64_t hashVal = FNV_OFFSET;
+    for(size_t i = 0; i < len; i++) {
+        hashVal ^= keyVals[i];
+        hashVal *= FNV_PRIME;
     }
+    return hashVal;
+}
+
+uint64_t hash_jenkins(const void *key, size_t len) {
+    const char *keyVals = key;
+    uint64_t hashVal = 0;
+    for(size_t i = 0; i < len; i++) {
+        hashVal += keyVals[i];
+        hashVal += hashVal << 10;
+        hashVal ^= hashVal >> 6;
+    }
+    hashVal += hashVal << 3;
+    hashVal ^= hashVal >> 11;
+    hashVal += hashVal << 15;
     return hashVal;
 }
 
@@ -33,7 +53,7 @@ int main(int argc, char **argv) {
     srand(time(NULL));
 
     HashMap *map = NULL;
-    if(init_hashmap(TABLE_SIZE, hash_key, &map) == ALLOC_ERR) return ALLOC_ERR;
+    if(hashmap_init(TABLE_SIZE, hash_fnv1a, &map) == ALLOC_ERR) return ALLOC_ERR;
 
     uint32_t guessCount = strtoul(argv[2], NULL, 10);
     char **guessList = make_guess_list(guessCount, WORD_SIZE);
@@ -46,7 +66,7 @@ int main(int argc, char **argv) {
     print_guesses(guessList, guessCount, map);
 
     free_guess_list(&guessList, guessCount);
-
+    printf("Collision count: %llu\n", get_collisions(map));
     hashmap_kill(&map);
  
     return EXIT_SUCCESS;
@@ -72,16 +92,20 @@ void free_guess_list(char ***guessList, int guessCount) {
 }
 
 void enter_wordlist(char *wordList, HashMap *map, char **guessList, uint32_t guessCount) {
-    FILE *wordlist = fopen(wordList, "r");
+    FILE *wordFile = fopen(wordList, "r");
+    UTIL_CHECK(wordFile);
     char buffer[WORD_SIZE];
     uint32_t wordCount = 0;
-    while(fgets(buffer, WORD_SIZE, wordlist)) {
+    while(fgets(buffer, WORD_SIZE, wordFile)) {
         char *endLine = strchr(buffer, '\n');
         if(endLine != NULL) *endLine = '\0';
 
         ExitCode result = hashmap_insert(map, buffer, strlen(buffer) + 1, buffer, strlen(buffer) + 1);
         if(result == ALLOC_ERR) exit(ALLOC_ERR);
-        else if(result != SUCCESS) exit(EXIT_FAILURE);
+        else if(result == DUPLICATE_KEY) {
+            fprintf(stderr, "Duplicate entry detected\n");
+            exit(EXIT_FAILURE);
+        }
 
         if(wordCount < (guessCount)) strncpy(guessList[wordCount], buffer, WORD_SIZE);
         else if((rand() % wordCount) == 0) strncpy(guessList[rand() % guessCount], buffer, WORD_SIZE);
@@ -92,7 +116,7 @@ void enter_wordlist(char *wordList, HashMap *map, char **guessList, uint32_t gue
         exit(EXIT_FAILURE);
     }
     printf("%d words parsed and logged in map\n", wordCount);
-    fclose(wordlist);
+    fclose(wordFile);
 }
 
 void print_guesses(char **guessList, uint32_t guessCount, HashMap *map) {

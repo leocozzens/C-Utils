@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -14,18 +13,20 @@ typedef struct Instance {
 
 struct _HashMap {
     uint64_t tableSize;
-    hash_func *hasher;
+    uint64_t collisionCount; // This is purely for diagnostic purposes, remove if not testing performance
+    hash_func hasher;
     Instance **table;
 };
 
 
 static _Bool check_if_dup(Instance *checkInst, const void *key, size_t keySize);
 
-ExitCode init_hashmap(uint64_t size, hash_func hasher, HashMap **map) {
+ExitCode hashmap_init(uint64_t size, hash_func hasher, HashMap **map) {
     *map = malloc(sizeof(HashMap));
     if(map == NULL) return ALLOC_ERR;
     (*map)->tableSize = size;
     (*map)->hasher = hasher;
+    (*map)->collisionCount = 0;
     (*map)->table = malloc(sizeof(Instance*) * (*map)->tableSize);
     if((*map)->table == NULL) return ALLOC_ERR;
 
@@ -39,6 +40,7 @@ ExitCode hashmap_insert(HashMap *map, const void *key, size_t keySize, void *obj
     if(map == NULL || key == NULL || object == NULL) return ALLOC_ERR;
     uint64_t index = (map->hasher(key, keySize) % map->tableSize);
     if(check_if_dup(map->table[index], key, keySize)) return DUPLICATE_KEY;
+    if(map->table[index] != NULL) map->collisionCount++; // Diagnostic, remove in regular usage
 
     Instance *newInst = malloc(sizeof(Instance));
 
@@ -68,9 +70,7 @@ ExitCode hashmap_insert(HashMap *map, const void *key, size_t keySize, void *obj
 static _Bool check_if_dup(Instance *checkInst, const void *key, size_t keySize) {
     Instance *tempInst = checkInst;
     while(tempInst != NULL) {
-        if(tempInst->keySize == keySize) {
-            if(memcmp(checkInst->key, key, keySize) == 0) return 1;
-        }
+        if(tempInst->keySize == keySize && memcmp(checkInst->key, key, keySize) == 0) return 1;
         tempInst = tempInst->nextInstance;
     }
     return 0;
@@ -110,14 +110,17 @@ void *hashmap_delete(HashMap *map, const void *key, size_t keySize, size_t *obje
     return result;
 }
 
+uint64_t get_collisions(HashMap *map) { // Diagnostic remove in regulat usage
+    return map->collisionCount;
+}
+
 void hashmap_kill(HashMap **map) {
     if(*map == NULL) return;
     for(uint64_t i = 0; i < (*map)->tableSize; i++) {
         if((*map)->table[i] == NULL) continue;
         Instance *tempInst = (*map)->table[i];
-        Instance *nextInst;
         do {
-            nextInst = tempInst->nextInstance;
+            Instance *nextInst = tempInst->nextInstance;
             free(tempInst->key);
             free(tempInst->object);
             free(tempInst);
